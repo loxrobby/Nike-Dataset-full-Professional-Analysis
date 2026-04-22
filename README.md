@@ -1,8 +1,21 @@
 # Nike Streamlit EDA Dashboard
 
+<div align="center">
+  <p>
+    <img src="assets/nike_shoe.gif" alt="Nike shoe animation" width="260" />
+    <img src="assets/nike_runner.gif" alt="Nike runner animation" width="260" />
+  </p>
+  <p><strong>Enterprise-grade Power BI-style analytics</strong> built with <strong>Streamlit</strong> + <strong>Plotly</strong></p>
+</div>
+
 An interview-ready, production-style **Exploratory Data Analysis (EDA) dashboard** built with **Streamlit** + **Plotly**.
 
 This project analyzes Nike product catalog data (pricing, discounting, ratings, reviews) and turns it into a clean, interactive analytics experience with business questions and data-driven narrative insights.
+
+## Dashboard preview
+- **Power BI-style UI**: dark theme, KPI cards, narrative insights, and polished layout
+- **Interactive controls**: slicers for product families, price range, and discount-only view
+- **Deep dives**: demographics + discount impact visuals to drive actionable insights
 
 ## What’s in the dashboard
 - **Robust data pipeline**: cached loading, type coercion, missing-value handling, feature engineering
