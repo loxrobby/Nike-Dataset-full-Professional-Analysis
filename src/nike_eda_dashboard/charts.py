@@ -14,11 +14,30 @@ def apply_nike_layout(fig: go.Figure, title: str | None = None) -> go.Figure:
         paper_bgcolor=PALETTE.white,
         plot_bgcolor=PALETTE.white,
         font=dict(color=PALETTE.black),
-        legend=dict(title=None),
+        legend=dict(title=None, font=dict(color=PALETTE.black)),
+        hoverlabel=dict(font=dict(color=PALETTE.black)),
         margin=dict(l=30, r=20, t=60, b=40),
     )
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.06)", zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(0,0,0,0.06)", zeroline=False)
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor="rgba(0,0,0,0.06)",
+        zeroline=False,
+        tickfont=dict(color=PALETTE.black),
+        title_font=dict(color=PALETTE.black),
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor="rgba(0,0,0,0.06)",
+        zeroline=False,
+        tickfont=dict(color=PALETTE.black),
+        title_font=dict(color=PALETTE.black),
+    )
+    fig.update_layout(
+        coloraxis_colorbar=dict(
+            tickfont=dict(color=PALETTE.black),
+            title=dict(font=dict(color=PALETTE.black)),
+        )
+    )
     return fig
 
 
@@ -49,7 +68,7 @@ def mini_donut(percent: float, color: str = PALETTE.accent) -> go.Figure:
         x=0.5,
         y=0.5,
         showarrow=False,
-        font=dict(size=16, color="#F2F2F2"),
+        font=dict(size=16, color=PALETTE.black),
     )
     return fig
 
