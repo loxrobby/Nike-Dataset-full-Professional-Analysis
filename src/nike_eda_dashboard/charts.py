@@ -41,7 +41,7 @@ def apply_nike_layout(fig: go.Figure, title: str | None = None) -> go.Figure:
     return fig
 
 
-def mini_donut(percent: float, color: str = PALETTE.accent) -> go.Figure:
+def mini_donut(percent: float, color: str = PALETTE.accent, *, size: int = 92) -> go.Figure:
     p = max(0.0, min(1.0, float(percent)))
     fig = go.Figure(
         data=[
@@ -60,14 +60,15 @@ def mini_donut(percent: float, color: str = PALETTE.accent) -> go.Figure:
     fig.update_layout(
         margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="rgba(0,0,0,0)",
-        height=86,
+        height=size,
+        width=size,
     )
     fig.add_annotation(
         text=f"{p:.0%}",
         x=0.5,
         y=0.5,
         showarrow=False,
-        font=dict(size=16, color=PALETTE.black),
+        font=dict(size=max(12, int(size * 0.20)), color=PALETTE.black),
     )
     return fig
 

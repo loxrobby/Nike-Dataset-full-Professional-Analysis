@@ -271,7 +271,7 @@ def render_kpis(df: pd.DataFrame, df_full: pd.DataFrame) -> None:
 
     # PowerBI-style metric: number + circular donut indicator
     with k5.container():
-        top_row = st.columns([2.2, 1], vertical_alignment="center")
+        top_row = st.columns([1.9, 0.7], vertical_alignment="center")
         with top_row[0]:
             st.metric(
                 "Discounted Share",
@@ -281,8 +281,8 @@ def render_kpis(df: pd.DataFrame, df_full: pd.DataFrame) -> None:
             )
         with top_row[1]:
             st.plotly_chart(
-                mini_donut(discounted_share),
-                use_container_width=True,
+                mini_donut(discounted_share, size=86),
+                use_container_width=False,
                 config={"displayModeBar": False},
             )
 
