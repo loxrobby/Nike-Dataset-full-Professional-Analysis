@@ -61,7 +61,6 @@ def mini_donut(percent: float, color: str = PALETTE.accent) -> go.Figure:
         margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="rgba(0,0,0,0)",
         height=86,
-        width=86,
     )
     fig.add_annotation(
         text=f"{p:.0%}",

@@ -282,7 +282,7 @@ def render_kpis(df: pd.DataFrame, df_full: pd.DataFrame) -> None:
         with top_row[1]:
             st.plotly_chart(
                 mini_donut(discounted_share),
-                use_container_width=False,
+                use_container_width=True,
                 config={"displayModeBar": False},
             )
 
@@ -415,6 +415,79 @@ def main() -> None:
         """
     )
     st.markdown(summary, unsafe_allow_html=True)
+
+    st.divider()
+    st.header("Sales & Demographics Deep Dive")
+
+    left, right = st.columns([1, 1.5])
+
+    with left:
+        gender_value = (
+            df.groupby("gender_inferred", dropna=False, as_index=False)
+            .agg(catalog_value=("sale_price", "sum"))
+            .sort_values("catalog_value", ascending=False)
+        )
+        gender_value["gender_inferred"] = gender_value["gender_inferred"].fillna("Unknown").astype(str)
+        fig_gender = px.pie(
+            gender_value,
+            names="gender_inferred",
+            values="catalog_value",
+            hole=0.45,
+            template="plotly_dark",
+            title="Catalog Value by Gender",
+        )
+        fig_gender.update_traces(
+            textinfo="percent+label",
+            hovertemplate="%{label}<br>Catalog value=$%{value:,.2f}<extra></extra>",
+        )
+        fig_gender.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.15, xanchor="center", x=0.5))
+        st.plotly_chart(fig_gender, use_container_width=True)
+
+    with right:
+        fig_tier = px.histogram(
+            df,
+            x="sale_price",
+            nbins=20,
+            marginal="box",
+            template="plotly_dark",
+            title="Product Volume by Price Tier",
+            labels={"sale_price": "Sale Price ($)", "count": "Products"},
+        )
+        fig_tier.update_xaxes(showgrid=False)
+        fig_tier.update_yaxes(showgrid=False)
+        fig_tier.update_traces(hovertemplate="Sale price=$%{x:,.2f}<br>Products=%{y:,}<extra></extra>")
+        st.plotly_chart(fig_tier, use_container_width=True)
+
+    top5_by_count = df["product_family"].value_counts().head(5).index.tolist() if len(df) else []
+    fam_prices = df[df["product_family"].isin(top5_by_count)].copy() if top5_by_count else df.copy()
+    fam_agg = (
+        fam_prices.groupby("product_family", as_index=False)
+        .agg(avg_listing=("listing_price", "mean"), avg_sale=("sale_price", "mean"), products=("product_id", "nunique"))
+        .sort_values("products", ascending=False)
+    )
+    fam_long = fam_agg.melt(
+        id_vars=["product_family"],
+        value_vars=["avg_listing", "avg_sale"],
+        var_name="price_type",
+        value_name="avg_price",
+    )
+    fam_long["price_type"] = fam_long["price_type"].map({"avg_listing": "Avg Listing Price", "avg_sale": "Avg Sale Price"})
+
+    fig_discount = px.bar(
+        fam_long,
+        x="product_family",
+        y="avg_price",
+        color="price_type",
+        barmode="group",
+        template="plotly_dark",
+        title="Average Listing vs. Sale Price (Top 5 Families)",
+        labels={"product_family": "Product Family", "avg_price": "Average Price ($)", "price_type": ""},
+        color_discrete_map={"Avg Listing Price": "#9CA3AF", "Avg Sale Price": "#FF6A00"},
+    )
+    fig_discount.update_xaxes(showgrid=False)
+    fig_discount.update_yaxes(showgrid=False)
+    fig_discount.update_traces(hovertemplate="%{x}<br>%{legendgroup}=$%{y:,.2f}<extra></extra>")
+    st.plotly_chart(fig_discount, use_container_width=True)
 
     st.divider()
     render_top_products_table(df)
