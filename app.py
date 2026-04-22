@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -229,6 +230,125 @@ def apply_powerbi_filters(df_full: pd.DataFrame, state: dict) -> pd.DataFrame:
     return df
 
 
+def export_charts_as_jpeg(df: pd.DataFrame, *, export_dir: Path, metric_choice: str, top_n: int, min_products: int) -> list[Path]:
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    figures = []
+
+    # Existing dashboard charts
+    figures.append(("q1_top_families", top_families_bar(df, metric=metric_choice, top_n=top_n)))
+    figures.append(("q4_family_sentiment_bubble", family_sentiment_bubble(df, min_products=min_products)))
+    figures.append(("q5_price_discount_by_gender", price_discount_by_gender(df)))
+    figures.append(("q5_discount_by_gender", discount_by_gender_bar(df)))
+
+    # Deep dives (Power BI-style) charts already computed similarly in UI
+    top5_families = df["product_family"].value_counts().head(5).index.tolist() if len(df) else []
+    box_df = df[df["product_family"].isin(top5_families)].copy() if top5_families else df.copy()
+
+    fig_box = px.box(
+        box_df,
+        x="product_family",
+        y="sale_price",
+        color="product_family",
+        template="plotly_dark",
+        title="Sale Price distribution (Top 5 families)",
+        labels={"product_family": "Product Family", "sale_price": "Sale Price ($)"},
+    )
+    fig_box.update_xaxes(showgrid=False)
+    fig_box.update_yaxes(showgrid=False)
+    fig_box.update_traces(hovertemplate="Family=%{x}<br>Sale price=$%{y:,.2f}<extra></extra>")
+    figures.append(("deep_dive_box_top5_families", fig_box))
+
+    fig_scatter = px.scatter(
+        df,
+        x="sale_price",
+        y="discount_pct",
+        color="product_family",
+        template="plotly_dark",
+        title="Sale Price vs Discount %",
+        labels={"sale_price": "Sale Price ($)", "discount_pct": "Discount %", "product_family": "Product Family"},
+    )
+    fig_scatter.update_xaxes(showgrid=False)
+    fig_scatter.update_yaxes(showgrid=False, tickformat=".0%")
+    fig_scatter.update_traces(
+        marker=dict(size=7, opacity=0.75),
+        hovertemplate="Family=%{legendgroup}<br>Sale price=$%{x:,.2f}<br>Discount=%{y:.0%}<extra></extra>",
+    )
+    figures.append(("deep_dive_scatter_price_vs_discount", fig_scatter))
+
+    # Sales & Demographics Deep Dive
+    gender_value = (
+        df.groupby("gender_inferred", dropna=False, as_index=False)
+        .agg(catalog_value=("sale_price", "sum"))
+        .sort_values("catalog_value", ascending=False)
+    )
+    gender_value["gender_inferred"] = gender_value["gender_inferred"].fillna("Unknown").astype(str)
+    fig_gender = px.pie(
+        gender_value,
+        names="gender_inferred",
+        values="catalog_value",
+        hole=0.45,
+        template="plotly_dark",
+        title="Catalog Value by Gender",
+    )
+    fig_gender.update_traces(textinfo="percent+label", hovertemplate="%{label}<br>Catalog value=$%{value:,.2f}<extra></extra>")
+    fig_gender.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.15, xanchor="center", x=0.5))
+    figures.append(("deep_dive_gender_donut", fig_gender))
+
+    fig_tier = px.histogram(
+        df,
+        x="sale_price",
+        nbins=20,
+        marginal="box",
+        template="plotly_dark",
+        title="Product Volume by Price Tier",
+        labels={"sale_price": "Sale Price ($)", "count": "Products"},
+    )
+    fig_tier.update_xaxes(showgrid=False)
+    fig_tier.update_yaxes(showgrid=False)
+    fig_tier.update_traces(hovertemplate="Sale price=$%{x:,.2f}<br>Products=%{y:,}<extra></extra>")
+    figures.append(("deep_dive_price_tier_hist", fig_tier))
+
+    top5_by_count = df["product_family"].value_counts().head(5).index.tolist() if len(df) else []
+    fam_prices = df[df["product_family"].isin(top5_by_count)].copy() if top5_by_count else df.copy()
+    fam_agg = (
+        fam_prices.groupby("product_family", as_index=False)
+        .agg(avg_listing=("listing_price", "mean"), avg_sale=("sale_price", "mean"), products=("product_id", "nunique"))
+        .sort_values("products", ascending=False)
+    )
+    fam_long = fam_agg.melt(
+        id_vars=["product_family"],
+        value_vars=["avg_listing", "avg_sale"],
+        var_name="price_type",
+        value_name="avg_price",
+    )
+    fam_long["price_type"] = fam_long["price_type"].map({"avg_listing": "Avg Listing Price", "avg_sale": "Avg Sale Price"})
+
+    fig_discount = px.bar(
+        fam_long,
+        x="product_family",
+        y="avg_price",
+        color="price_type",
+        barmode="group",
+        template="plotly_dark",
+        title="Average Listing vs. Sale Price (Top 5 Families)",
+        labels={"product_family": "Product Family", "avg_price": "Average Price ($)", "price_type": ""},
+        color_discrete_map={"Avg Listing Price": "#9CA3AF", "Avg Sale Price": "#FF6A00"},
+    )
+    fig_discount.update_xaxes(showgrid=False)
+    fig_discount.update_yaxes(showgrid=False)
+    fig_discount.update_traces(hovertemplate="%{x}<br>%{legendgroup}=$%{y:,.2f}<extra></extra>")
+    figures.append(("deep_dive_listing_vs_sale_grouped", fig_discount))
+
+    saved_paths: list[Path] = []
+    for name, fig in figures:
+        out_path = export_dir / f"{name}.jpeg"
+        fig.write_image(str(out_path), format="jpeg", scale=2)
+        saved_paths.append(out_path)
+
+    return saved_paths
+
+
 def render_kpis(df: pd.DataFrame, df_full: pd.DataFrame) -> None:
     catalog_value = float(df["sale_price"].sum())
     total_products = int(df["product_id"].nunique())
@@ -280,8 +400,13 @@ def render_kpis(df: pd.DataFrame, df_full: pd.DataFrame) -> None:
                 help="Share of products marked discounted in the filtered view; delta compares to the full catalog.",
             )
         with top_row[1]:
+            try:
+                donut_fig = mini_donut(discounted_share, size=86)
+            except TypeError:
+                # Backward-compatible with older mini_donut() signatures (e.g., in some deployments)
+                donut_fig = mini_donut(discounted_share)
             st.plotly_chart(
-                mini_donut(discounted_share, size=86),
+                donut_fig,
                 use_container_width=False,
                 config={"displayModeBar": False},
             )
@@ -342,6 +467,27 @@ def main() -> None:
 
     state = build_powerbi_sidebar(df_full)
     df = apply_powerbi_filters(df_full, state)
+
+    with st.sidebar:
+        st.divider()
+        if st.button("📸 Export charts as JPEG", use_container_width=True):
+            try:
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                out_dir = Path(__file__).parent / "exports" / f"charts_{ts}"
+                paths = export_charts_as_jpeg(
+                    df,
+                    export_dir=out_dir,
+                    metric_choice="catalog_value",
+                    top_n=10,
+                    min_products=5,
+                )
+                st.success(f"Saved {len(paths)} JPEGs to: {out_dir}")
+            except Exception as exc:
+                st.error(
+                    "Export failed. If this is your first time exporting images, install dependencies with "
+                    "`pip install -r requirements.txt`.\n\n"
+                    f"Details: {exc}"
+                )
 
     render_header(rows_total=len(df_full), rows_filtered=len(df), dq=dq)
 
